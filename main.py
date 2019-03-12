@@ -25,13 +25,15 @@ def numpy_random_disc_action(numActions):
     actionArr[actionId] = 1
     return actionArr
 
+
 def step_with_exp(obs_collection, nets_collection, noise=None):
-    actions =  [model((obs)) for obs, model in zip(obs_collection, nets_collection)]
-    if noise != None:
+    actions = [model((obs)) for obs, model in zip(obs_collection, nets_collection)]
+    if noise is not None:
          actions = [action + torch.Tensor(noise.noise()) for action in actions]
          actions = [action.clamp(-1.0,1.0) for action in actions]
 
     return actions
+
 
 def getQValues(critic_network, joint_state, joint_act):
     return critic_network((Variable(torch.cat((joint_state, joint_act), dim=1))))
@@ -52,26 +54,27 @@ def criticUpdate(critic_net, critic_optim, target_actor_nets, target_critic_net,
 
     target_vals = rewards + gamma*(1-dones)*next_vals
     loss_func = nn.MSELoss()
-    loss = loss_func(predicted_q_val, next_vals)
+    loss = loss_func(predicted_q_val, target_vals)
     loss.backward()
 
     nn.utils.clip_grad_norm_(critic_net.parameters(), kwargs['clip_grad'])
     critic_optim.step()
 
+
 def actorUpdate(agentIdx, states, actor_net, critic_net, actor_optim, acts, kwargs):
 
     agent_obs = states[agentIdx]
-    predicted_action = step_with_exp([agent_obs],[actor_net], noise=None)
-    predicted_action = predicted_action[0]
+    predicted_action = step_with_exp([agent_obs], [actor_net], noise=None)[0]
     allActs = []
     for k in range(len(acts)):
         if k != agentIdx:
+
             allActs.append(acts[k])
         else:
             allActs.append(predicted_action)
     
-    joint_obs = torch.cat((states), dim=1)
-    qVal = critic_net((torch.cat((joint_obs,torch.cat((allActs), dim=1)), dim=1)))
+    joint_obs = torch.cat(states, dim=1)
+    qVal = critic_net((torch.cat((joint_obs, torch.cat(allActs, dim=1)), dim=1)))
     loss = -torch.mean(qVal)
     
     actor_optim.zero_grad()
@@ -81,13 +84,12 @@ def actorUpdate(agentIdx, states, actor_net, critic_net, actor_optim, acts, kwar
     actor_optim.step()
 
 
-
-
-def update(actor_nets, critic_nets, target_actor_nets, target_critic_nets, exp_replay, actor_optimizers, critic_optimizers, batch_size, kwargs):
+def update(actor_nets, critic_nets, target_actor_nets, target_critic_nets, exp_replay, actor_optimizers,
+           critic_optimizers, batch_size, kwargs):
     if exp_replay.__len__() > batch_size:
         idx = 0
-        for actor_network, critic_network, actor_optim, critic_optim, target_actor_network, target_critic_network in zip(actor_nets, critic_nets, 
-            actor_optimizers, critic_optimizers, target_actor_nets, target_critic_nets):
+        for actor_network, critic_network, actor_optim, critic_optim, target_actor_network, target_critic_network in \
+                zip(actor_nets, critic_nets, actor_optimizers, critic_optimizers, target_actor_nets, target_critic_nets):
             obs, act, rews, next_obs, dones = exp_replay.sample(batch_size, norm_rews=True)
 
             criticUpdate(critic_network, critic_optim, target_actor_nets, target_critic_network, obs, next_obs, act, rews[idx], dones[idx], kwargs)
@@ -95,11 +97,6 @@ def update(actor_nets, critic_nets, target_actor_nets, target_critic_nets, exp_r
 
             idx += 1
 
-
-        
-    #for actor_net in actor_nets:
-
-    return
 
 def main(**kwargs):
 
@@ -116,10 +113,10 @@ def main(**kwargs):
     UPDATE_FREQ = 100
     COPY_FREQ = 100
 
-    actor_nets = [MLP(obs_dim[i], [64, 64, 64], action_dim[i]) for i in range(2)]
-    critic_nets = [MLP((obs_dim[0]+obs_dim[1]+action_dim[0]+action_dim[1]), [64, 64, 64], 1, net_type="Critic") for i in range(2)]
-    target_actor_nets = [MLP(obs_dim[i], [64, 64, 64], action_dim[i]) for i in range(2)]
-    target_critic_nets = [MLP((obs_dim[0]+obs_dim[1]+action_dim[0]+action_dim[1]), [64, 64, 64], 1, net_type="Critic") for i in range(2)]
+    actor_nets = [MLP(obs_dim[i], [128, 128, 128], action_dim[i]) for i in range(2)]
+    critic_nets = [MLP((obs_dim[0]+obs_dim[1]+action_dim[0]+action_dim[1]), [128, 128, 128], 1, net_type="Critic") for i in range(2)]
+    target_actor_nets = [MLP(obs_dim[i], [128, 128, 128], action_dim[i]) for i in range(2)]
+    target_critic_nets = [MLP((obs_dim[0]+obs_dim[1]+action_dim[0]+action_dim[1]), [128, 128, 128], 1, net_type="Critic") for i in range(2)]
 
     actor_optimizers = [Adam(actor_net.parameters(), lr=kwargs['actor_lr']) for actor_net in actor_nets]
     critic_optimizers = [Adam(critic_net.parameters(), lr=kwargs['critic_lr']) for critic_net in critic_nets]
@@ -149,6 +146,7 @@ def main(**kwargs):
             tens_obs = [Variable(torch.Tensor([elem]), requires_grad=False) for elem in observation[0]]
             actions = step_with_exp(tens_obs, actor_nets, noise=noise)
             actions = [a.detach() for a in actions]
+            print("Actions : ",actions)
             action_numpy = [a[0].data.numpy() for a in actions]
 
             nextObs, rewards, dones, info = environment.step(action_numpy)
@@ -201,8 +199,8 @@ if __name__ == "__main__":
         train_frequency=100,
         batch_size=1024,
         tau=0.001,
-        critic_lr=0.0001,
-        actor_lr=0.0001,
+        critic_lr=0.00001,
+        actor_lr=0.00001,
         init_steps=1024,
         clip_grad=0.5
     )
