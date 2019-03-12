@@ -139,12 +139,12 @@ def main(**kwargs):
         numSteps = 0
         observation = environment.reset()
         observation = [[observation[0], observation[1]]]
-        done = [False, False]
+        dones = [[False, False]]
         
         total_rewards = [0.0, 0.0]
         epsilon = 0.0
 
-        while numSteps < MAX_EPS_STEPS:
+        while numSteps < MAX_EPS_STEPS and dones[0][0]==False and dones[0][1]==False:
             actions = []
             tens_obs = [Variable(torch.Tensor([elem]), requires_grad=False) for elem in observation[0]]
             actions = step_with_exp(tens_obs, actor_nets, noise=noise)
@@ -164,7 +164,7 @@ def main(**kwargs):
 
             total_rewards[0] += rewards[0][0]
             total_rewards[1] += rewards[0][1]
-
+            environment.render(mode='human')
             exp_replay.push(np.asarray(observation), action_numpy, np.asarray(rewards), np.asarray(next_obs_given), np.asarray(dones))
 
             if totalSteps % UPDATE_FREQ == 0:
