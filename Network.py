@@ -39,7 +39,8 @@ class MLP(nn.Module):
 
         out = self.processingLayers[-1](out)
         if self.net_type == "Actor":
-            out = F.tanh(out)
+            out_constrained = F.tanh(out)
+            return out_constrained, out
 
         return out
 
